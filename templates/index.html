@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fashion Trends Dashboard</title>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #2c3e50;
+            color: white;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: #34495e;
+            color: white;
+            padding: 10px 0;
+            text-align: center;
+        }
+
+        .dashboard {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 20px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .controls select, .controls button {
+            margin: 0 10px;
+            padding: 10px;
+            font-size: 16px;
+            background-color: #34495e;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        .chart-container {
+            background: #34495e;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            width: 80%; /* Adjust the width of the chart container */
+            height: 600px; /* Set a fixed height for the chart container */
+            margin-top: 20px; /* Add some margin at the top */
+        }
+
+        .chart-container h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            google.charts.load('current', {'packages':['corechart']});
+            google.charts.setOnLoadCallback(drawInitialChart);
+
+            const monthOrder = [
+                'January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'
+            ];
+
+            function drawInitialChart() {
+                var data = google.visualization.arrayToDataTable([
+                    ['Time', 'Sales Score'],
+                    ['Loading',  0]
+                ]);
+
+                var options = {
+                    title: 'Sales Prediction',
+                    curveType: 'function',
+                    legend: { position: 'bottom' },
+                    backgroundColor: '#34495e',
+                    titleTextStyle: { color: 'white' },
+                    hAxis: { textStyle: { color: 'white' } },
+                    vAxis: {
+                        textStyle: { color: 'white' },
+                        minValue: 0,
+                        maxValue: 1000,
+                        ticks: [0, 200, 400, 600, 800, 1000]
+                    },
+                    legendTextStyle: { color: 'white' }
+                };
+
+                var chart = new google.visualization.LineChart(document.getElementById('chart'));
+                chart.draw(data, options);
+            }
+
+            function drawChart(timeframe, product, subcategory, salesData) {
+                console.log('Sales Data:', salesData);
+
+                var data = [['Time', 'Sales Score']];
+                var keys = [];
+
+                if (timeframe === 'yearly') {
+                    keys = Object.keys(salesData);
+                } else if (timeframe === 'monthly') {
+                    keys = monthOrder.filter(month => salesData.hasOwnProperty(month));
+                }
+
+                keys.forEach(function(key) {
+                    var value = salesData[key];
+                    data.push([key, parseFloat(value)]);
+                });
+
+                var googleData = google.visualization.arrayToDataTable(data);
+                console.log('Google Data:', googleData);
+
+                var values = Object.values(salesData);
+                var min = Math.min(...values);
+                var max = Math.max(...values);
+
+                var options = {
+                    title: `Sales Prediction (${timeframe.charAt(0).toUpperCase() + timeframe.slice(1)}) for ${product} (${subcategory})`,
+                    curveType: 'function',
+                    legend: { position: 'bottom' },
+                    backgroundColor: '#34495e',
+                    titleTextStyle: { color: 'white' },
+                    hAxis: {
+                        textStyle: { color: 'white' },
+                        slantedText: true,
+                    },
+                    vAxis: {
+                        textStyle: { color: 'white' },
+                        minValue: min,
+                        maxValue: max,
+                        ticks: calculateTicks(min, max)
+                    },
+                    legendTextStyle: { color: 'white' }
+                };
+
+                var chart = new google.visualization.LineChart(document.getElementById('chart'));
+                chart.draw(googleData, options);
+            }
+
+            function calculateTicks(min, max) {
+                var ticks = [];
+                var range = max - min;
+                var interval = Math.ceil(range / 10);
+
+                for (var i = 0; i <= 10; i++) {
+                    ticks.push(min + (interval * i));
+                }
+
+                return ticks;
+            }
+
+            function updateSubcategories(product) {
+                var subcategorySelector = document.getElementById('subcategorySelector');
+                subcategorySelector.innerHTML = '';
+
+                var defaultOption = document.createElement('option');
+                defaultOption.text = 'Select Subcategory';
+                subcategorySelector.add(defaultOption);
+
+                var options;
+                switch (product) {
+                    case 'Clothing':
+                        options = ['Shirts', 'Pants', 'Dresses'];
+                        break;
+                    case 'Footwear':
+                        options = ['Shoes', 'Slippers', 'Sandals'];
+                        break;
+                    case 'Accessories':
+                        options = ['Hats', 'Belts', 'Scarves'];
+                        break;
+                    default:
+                        options = [];
+                        break;
+                }
+
+                options.forEach(function(option) {
+                    var optionElement = document.createElement('option');
+                    optionElement.value = option;
+                    optionElement.text = option;
+                    subcategorySelector.add(optionElement);
+                });
+            }
+
+            document.getElementById('productSelector').addEventListener('change', function() {
+                var product = this.value;
+                updateSubcategories(product);
+            });
+
+            document.getElementById('goButton').addEventListener('click', function() {
+                var product = document.getElementById('productSelector').value;
+                var timeframe = document.getElementById('timeframeSelector').value;
+                var subcategory = document.getElementById('subcategorySelector').value;
+
+                fetch('/get_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ product: product, timeframe: timeframe, subcategory: subcategory })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Received Data:', data);
+                    drawChart(timeframe, product, subcategory, data);
+                })
+                .catch(error => console.error('Error:', error));
+            });
+        });
+    </script>
+</head>
+<body>
+    <header>
+        <h1>Fashion Trends Dashboard</h1>
+    </header>
+    <section class="dashboard">
+        <div class="controls">
+            <select id="productSelector">
+                <option value="Clothing">Clothing</option>
+                <option value="Footwear">Footwear</option>
+                <option value="Accessories">Accessories</option>
+            </select>
+            <select id="subcategorySelector">
+                <option value="">Select Subcategory</option>
+            </select>
+            <select id="timeframeSelector">
+                <option value="yearly">Yearly</option>
+                <option value="monthly">Monthly</option>
+            </select>
+            <button id="goButton">Go</button>
+        </div>
+        <div id="chart" class="chart-container">
+            <h2>Sales Prediction</h2>
+        </div>
+    </section>
+</body>
+</html>
